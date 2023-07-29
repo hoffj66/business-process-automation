@@ -15,37 +15,31 @@ export class CogSearchRetriever extends BaseRetriever {
     }
 
     private _search = async (query: string): Promise<any[]> => {
-        try {
-
-            const headers: AxiosRequestConfig = {
-                headers: {
-                    "Content-Type": "application/json",
-                    "api-key": process.env.COGSEARCH_APIKEY
-                }
+        const headers: AxiosRequestConfig = {
+            headers: {
+                "Content-Type": "application/json",
+                "api-key": process.env.COGSEARCH_APIKEY
             }
-            let body: any = {
-                search: query,
-                count: true,
-                facets: [],
-                filter: "",
-                queryType: "semantic",
-                skip: 0,
-                top: this._numDocs,
-                semanticConfiguration: "default",
-                answers: "extractive|count-3",
-                captions: "extractive|highlight-true",
-                queryLanguage: "en"
-            }
-            if (this._indexConfig) {
-                let url = `${process.env.COGSEARCH_URL}/indexes/${this._indexConfig.name}/docs/search?api-version=2021-04-30-Preview`
-                const axiosResult = await axios.post(url, body, headers)
+        }
+        let body: any = {
+            search: query,
+            count: true,
+            facets: [],
+            filter: "",
+            queryType: "semantic",
+            skip: 0,
+            top: this._numDocs,
+            semanticConfiguration: "default",
+            answers: "extractive|count-3",
+            captions: "extractive|highlight-true",
+            queryLanguage: "en"
+        }
+        if (this._indexConfig) {
+            let url = `${process.env.COGSEARCH_URL}/indexes/${this._indexConfig.name}/docs/search?api-version=2021-04-30-Preview`
+            const axiosResult = await axios.post(url, body, headers)
 
 
-                return axiosResult.data.value
-            }
-
-        } catch (err) {
-            console.log(err)
+            return axiosResult.data.value
         }
         return []
     }
@@ -70,28 +64,24 @@ export class CogSearchRetriever extends BaseRetriever {
     }
 
     private _getText = (searchables, data) => {
-        try {
-            if (!searchables || searchables.length === 0) {
-                return ""
-            }
-            let out = ""
 
-            for (const s of searchables) {
-                let currentData = data
-                for (const i of s.split('/')) {
-                    if (Array.isArray(currentData[i])) {
-                        currentData = currentData[i][0]
-                    } else {
-                        currentData = currentData[i]
-                    }
-                }
-                out += currentData
-            }
-            return `\nFilename : ${data.filename} \n${out}`
-        } catch (err) {
-            console.log(err)
+        if (!searchables || searchables.length === 0) {
+            return ""
         }
+        let out = ""
 
+        for (const s of searchables) {
+            let currentData = data
+            for (const i of s.split('/')) {
+                if (Array.isArray(currentData[i])) {
+                    currentData = currentData[i][0]
+                } else {
+                    currentData = currentData[i]
+                }
+            }
+            out += `\n${s} : ${currentData}\n`
+        }
+        return out
     }
 
 
@@ -172,7 +162,7 @@ export class CogSearchRetriever extends BaseRetriever {
             }
             docs.push(doc)
         }
-        if(docs.length === 0){
+        if (docs.length === 0) {
             const doc: Document<Record<string, any>> = {
                 pageContent: "No addtional content.",
                 metadata: {}

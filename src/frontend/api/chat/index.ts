@@ -7,8 +7,11 @@ import { CogSearchRetrievalQAChain } from "../langchainlibs/chains/cogSearchRetr
 import { CogSearchTool } from "../langchainlibs/tools/cogsearch";
 import { PlanAndExecuteAgentExecutor } from "langchain/experimental/plan_and_execute";
 import { ChatOpenAI } from "langchain/chat_models/openai";
-import { initializeAgentExecutorWithOptions } from "langchain/agents";
+import { AgentExecutor, LLMSingleActionAgent, initializeAgentExecutorWithOptions } from "langchain/agents";
 import { Tool } from "langchain/tools"
+import { LocationChain } from "../langchainlibs/chains/locationChain";
+import { LocationTool } from "../langchainlibs/tools/location";
+import { HotelAgent } from "../langchainlibs/agents/hotel";
 
 process.env.OPENAI_API_TYPE = "azure"
 process.env.AZURE_OPENAI_API_KEY = process.env.OPENAI_KEY
@@ -22,55 +25,63 @@ process.env.AZURE_OPENAI_API_BASE = process.env.OPENAI_ENDPOINT
 
 
 const runChain = async (pipeline, history): Promise<ChainValues> => {
-  const chain = new CogSearchRetrievalQAChain(pipeline.chainParameters)
+  const chain =  new LocationChain(pipeline.chainParameters)//new CogSearchRetrievalQAChain(pipeline.chainParameters)
   let outputKey: string
   if (pipeline.chainParameters.type === "refine") {
     outputKey = "output_text"
   } else {
     outputKey = "text"
   }
-
-  const memory: BufferWindowMemory = new BufferWindowMemory({ k: pipeline.memorySize, memoryKey: "chat_history", outputKey: outputKey})
+      
+  const memory: BufferWindowMemory = new BufferWindowMemory({ k: pipeline.memorySize, memoryKey: "chat_history", outputKey: outputKey, chatHistory : convertToLangChainMessage(history)})
   const query = history[history.length - 1].user
   const out = await chain.run(query, memory)
   return out
 }
 
 const runAgent = async (pipeline, history): Promise<ChainValues> => {
-  const tools: Tool[] = []
-  for (const t of pipeline.parameters.tools) {
-    t.history = convertToLangChainMessage(history)
-    const tool = new CogSearchTool(t)
-    tools.push(tool)
-  }
-  let executor
-  switch (pipeline.subType) {
-    case "zero-shot-react-description":
-    case "chat-zero-shot-react-description":
-    case "openai-functions":
-      executor = await initializeAgentExecutorWithOptions(
-        tools,
-        new ChatOpenAI(pipeline.parameters.llmConfig),
-        { agentType: pipeline.subType, verbose: true }
-      );
-      break;
-    case "plan-and-execute":
-      executor = PlanAndExecuteAgentExecutor.fromLLMAndTools({
-        llm: new ChatOpenAI(pipeline.parameters.llmConfig),
-        tools,
-      });
-      break;
+  //pipeline.history = convertToLangChainMessage(history)
+  pipeline.parameters.tools[0].history = convertToLangChainMessage(history)
+  const tool = new LocationTool(pipeline.parameters.tools[0])
+  const tools: Tool[] = [tool]
+  // for (const t of pipeline.parameters.tools) {
+  //   t.history = convertToLangChainMessage(history)
+  //   const tool = new CogSearchTool(t)
+  //   tools.push(tool)
+  // }
+  const agent = new HotelAgent()
+  const executor = new AgentExecutor({
+    agent : agent,
+    tools : tools,
+    maxIterations : 5
+  });
+  // let executor
+  // switch (pipeline.subType) {
+  //   case "zero-shot-react-description":
+  //   case "chat-zero-shot-react-description":
+  //   case "openai-functions":
+  //     executor = await initializeAgentExecutorWithOptions(
+  //       tools,
+  //       new ChatOpenAI(pipeline.parameters.llmConfig),
+  //       { agentType: pipeline.subType, verbose: true }
+  //     );
+  //     break;
+  //   case "plan-and-execute":
+  //     executor = PlanAndExecuteAgentExecutor.fromLLMAndTools({
+  //       llm: new ChatOpenAI(pipeline.parameters.llmConfig),
+  //       tools,
+  //     });
+  //     break;
 
-  }
+  // }
   const query = history[history.length - 1].user
   const controller = new AbortController();
 
-  // Call `controller.abort()` somewhere to cancel the request.
-  setTimeout(() => {
-    controller.abort();
-  }, 60000);
+  // setTimeout(() => {
+  //   controller.abort();
+  // }, 60000);
   const result = await executor.call({
-    input: query, signal: controller.signal
+    input: query//  , signal: controller.signal
   });
 
   return result
