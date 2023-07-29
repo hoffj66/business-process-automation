@@ -86,11 +86,12 @@ const EnterpriseSearch = () => {
     const [tools, setTools] = useState([])
     const [toolName, setToolName] = useState("")
     const [toolDescription, setToolDescription] = useState("")
-    const [refinePrompt, setRefinePrompt] = useState(`Question: {question}
-    Chat History:{chat_history}
-    Document: {context} 
-    Existing Answer: {existing_answer}
-    If the document adds additional information to the answer of the question, refine it.  Otherwise, return the existing answer.`)
+    const [refinePrompt, setRefinePrompt] = useState(`
+    Question: {question}
+        Chat History:{chat_history}
+        Document: {context} 
+        Existing Answer: {existing_answer}
+        Each document contains information for a single hotel.  If the information is relevant to the question and chat history, refine the existing answer. Only update the existing answer with information from the document.`)
     const [refineQuestionPrompt, setRefineQuestionPrompt] = useState(`Based on the chat history and question, create a new query.
     Question: {question}
     Chat History: {chat_history}
@@ -105,15 +106,19 @@ const EnterpriseSearch = () => {
     Question : {question}
     Chat History: {chat_history}
     Answer:`)
-    const [questionGenerationPrompt, setQuestionGenerationPrompt] = useState(`Based on the chat history and question, create a new query.
+    const [questionGenerationPrompt, setQuestionGenerationPrompt] = useState(`Based on the chat history and question, create a new query.  Convert state abbreviations to the full form.  Example: PA to Pennsylvania.
     Question: {question}
     Chat History: {chat_history}
     New Query:`)
-    const [stuffPrompt, setStuffPrompt] = useState(`I'm a virtual assistant that answers questions based on documents that are returned.  I will only information that is within the context of the document.
-    Document : {context} 
-    Question : {question}
-    Chat History: {chat_history}
-    Answer:`)
+    const [stuffPrompt, setStuffPrompt] = useState(`I'm a virtual assistant that answers questions based on documents that are returned.  I will only return information that is within the context of the document.  If the question is not about hotels or locations, return "This question is not in scope for this bot".  Each name is the name of a hotel along with the city and zip code.  Following the response list the names of each hotels in a bulleted list using hyphens.
+    Example:
+    - hotel name 1
+    - hotel name 2 
+    
+        Document : {context} 
+        Question : {question}
+        Chat History: {chat_history}
+        Answer:`)
 
 
 

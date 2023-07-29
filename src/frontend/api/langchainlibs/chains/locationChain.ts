@@ -1,7 +1,7 @@
 import { ChainValues, LLMResult } from "langchain/schema"
 import { CogSearchRetriever } from "../retrievers/cogsearch"
 import { OpenAIBaseInput } from "langchain/dist/types/openai-types"
-import { ConversationalRetrievalQAChain, MapReduceQAChainParams, QAChainParams, RefineQAChainParams, StuffQAChainParams } from "langchain/chains";
+import { ConversationalRetrievalQAChain, LLMChain, MapReduceQAChainParams, QAChainParams, RefineQAChainParams, StuffQAChainParams } from "langchain/chains";
 import { BufferWindowMemory } from "langchain/memory";
 import { ChatOpenAI } from "langchain/chat_models/openai";
 import { BaseRetriever } from "langchain/schema/retriever";
@@ -71,6 +71,9 @@ export class LocationChain {
                 break;
         }
 
+        const queryChain = new LLMChain({prompt : getPrompt(this._parameters.questionGenerationPrompt), llm : llm, memory : memory})
+        const newQuery = await queryChain.call({question : query})
+        console.log(JSON.stringify(newQuery))
 
         const retrievalChain = ConversationalRetrievalQAChain.fromLLM(
             llm,
@@ -81,14 +84,14 @@ export class LocationChain {
                 returnSourceDocuments: true,
                 questionGeneratorChainOptions: {
                     llm,
-                    template: this._parameters.questionGeneratorPrompt && this._parameters.questionGeneratorPrompt.length > 0 ? this._parameters.questionGeneratorPrompt : null
+                    template: this._parameters.questionGenerationPrompt && this._parameters.questionGenerationPrompt.length > 0 ? this._parameters.questionGeneratorPrompt : null
                 }
 
             }
         );
         //retrievalChain.inputKey = "question"
 
-        const out = await retrievalChain.call({ question: query })
+        const out = await retrievalChain.call({ question: newQuery.text })
         return out
     }
 }
