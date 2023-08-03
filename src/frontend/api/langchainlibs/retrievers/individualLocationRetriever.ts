@@ -2,7 +2,7 @@ import axios, { AxiosRequestConfig } from "axios"
 import { BaseRetriever } from "langchain/schema/retriever";
 import { Document } from "langchain/document";
 
-export class LocationRetriever extends BaseRetriever {
+export class IndividualLocationRetriever extends BaseRetriever {
     lc_namespace: string[];
 
     private _numDocs: number
@@ -14,7 +14,7 @@ export class LocationRetriever extends BaseRetriever {
         this._indexConfig = parameters.indexConfig
     }
 
-    private _search = async (query: string): Promise<any[]> => {
+    private _search = async (name: string): Promise<any[]> => {
         const headers: AxiosRequestConfig = {
             headers: {
                 "Content-Type": "application/json",
@@ -22,10 +22,10 @@ export class LocationRetriever extends BaseRetriever {
             }
         }
         let body: any = {
-            search: query,
+            search: "*",
             count: true,
             facets: [],
-            filter: "",
+            filter: "profile:name",
             queryType: "semantic",
             skip: 0,
             top: this._numDocs,
@@ -80,8 +80,8 @@ export class LocationRetriever extends BaseRetriever {
         return out
     }
 
-    getRelevantDocuments = async (query: string): Promise<Document<Record<string, any>>[]> => {
-        const search = await this._search(query)
+    getRelevantDocuments = async (name: string): Promise<Document<Record<string, any>>[]> => {
+        const search = await this._search(name)
         const docs: Document<Record<string, any>>[] = []
         for (const v of search) {
             const doc: Document<Record<string, any>> = {

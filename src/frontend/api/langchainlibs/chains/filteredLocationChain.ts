@@ -14,7 +14,7 @@ const getPrompt = (prompt) => {
     return (prompt && prompt.length > 0) ? PromptTemplate.fromTemplate(prompt) : null
 }
 
-export class LocationChain {
+export class FilteredLocationChain {
     private _parameters: any
     private _callback: BaseCallbackHandler
     constructor(parameters: any) {
