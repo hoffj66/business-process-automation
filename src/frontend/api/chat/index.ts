@@ -12,6 +12,7 @@ import { Tool } from "langchain/tools"
 import { LocationChain } from "../langchainlibs/chains/locationChain";
 import { LocationTool } from "../langchainlibs/tools/location";
 import { HotelAgent } from "../langchainlibs/agents/hotel";
+import { HotelsByGeo } from "../langchainlibs/chains/filteredLocationChain";
 
 process.env.OPENAI_API_TYPE = "azure"
 process.env.AZURE_OPENAI_API_KEY = process.env.OPENAI_KEY
@@ -25,7 +26,7 @@ process.env.AZURE_OPENAI_API_BASE = process.env.OPENAI_ENDPOINT
 
 
 const runChain = async (pipeline, history): Promise<ChainValues> => {
-  const chain =  new LocationChain(pipeline.chainParameters)//new CogSearchRetrievalQAChain(pipeline.chainParameters)
+  const chain =  new HotelsByGeo(pipeline.chainParameters)//new CogSearchRetrievalQAChain(pipeline.chainParameters)
   let outputKey: string
   if (pipeline.chainParameters.type === "refine") {
     outputKey = "output_text"

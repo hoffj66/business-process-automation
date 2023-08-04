@@ -1,97 +1,114 @@
-import { ChainValues, LLMResult } from "langchain/schema"
+import { ChainValues } from "langchain/schema"
 import { CogSearchRetriever } from "../retrievers/cogsearch"
 import { OpenAIBaseInput } from "langchain/dist/types/openai-types"
-import { ConversationalRetrievalQAChain, LLMChain, MapReduceQAChainParams, QAChainParams, RefineQAChainParams, StuffQAChainParams } from "langchain/chains";
+import { LLMChain } from "langchain/chains";
 import { BufferWindowMemory } from "langchain/memory";
 import { ChatOpenAI } from "langchain/chat_models/openai";
-import { BaseRetriever } from "langchain/schema/retriever";
-import { BaseCallbackHandler } from "langchain/callbacks";
-import { Serialized } from "langchain/dist/load/serializable";
+import { BaseRetriever } from "langchain/dist/schema/retriever";
 import { PromptTemplate } from "langchain";
-import { LocationRetriever } from "../retrievers/locationRetriever";
+import axios, { AxiosRequestConfig } from "axios";
+import { Document } from "langchain/document";
 
-const getPrompt = (prompt) => {
-    return (prompt && prompt.length > 0) ? PromptTemplate.fromTemplate(prompt) : null
-}
+const mapKey = process.env.MAPS_API_KEY
 
-export class FilteredLocationChain {
+export class HotelsByGeo {
     private _parameters: any
-    private _callback: BaseCallbackHandler
     constructor(parameters: any) {
         this._parameters = parameters
     }
 
-    public run = async (query: string, memory: BufferWindowMemory): Promise<ChainValues> => {
+    private getPrompt = (prompt) => {
+        return (prompt && prompt.length > 0) ? PromptTemplate.fromTemplate(prompt) : null
+    }
 
-        const retriever: BaseRetriever = new LocationRetriever(this._parameters.retriever)
-        const llmConfig: OpenAIBaseInput = this._parameters.llmConfig
-        llmConfig["callbacks"] = [
-            {
-                handleLLMStart: async (llm: Serialized, prompts: string[]) => {
-                    console.log(JSON.stringify(llm, null, 2));
-                    console.log(JSON.stringify(prompts, null, 2));
-                },
-                handleLLMEnd: async (output: LLMResult) => {
-                    console.log(JSON.stringify(output, null, 2));
-                },
-                handleLLMError: async (err: Error) => {
-                    console.error(err);
-                },
-            },
-        ]
-        const llm = new ChatOpenAI(llmConfig)
-        let qaChainParams : QAChainParams
-        switch (this._parameters.type) {
-            case "stuff":
-                const stuffParams: StuffQAChainParams = {
-                    verbose: true,
-                    prompt: getPrompt(this._parameters.stuffPrompt)
+    private _search = async (search: string, filter: string, numDocs: number, indexConfig: any): Promise<any[]> => {
+        try {
+
+            const headers: AxiosRequestConfig = {
+                headers: {
+                    "Content-Type": "application/json",
+                    "api-key": process.env.COGSEARCH_APIKEY
                 }
-                qaChainParams = stuffParams
-                qaChainParams.type = this._parameters.type
-                break;
-            case "refine":
-                const refineParams: RefineQAChainParams = {
-                    verbose: true,
-                    refinePrompt : getPrompt(this._parameters.refinePrompt),
-                    questionPrompt : getPrompt(this._parameters.refineQuestionPrompt)
+            }
+            let body: any = {
+                search: search,
+                count: true,
+                facets: [],
+                filter: filter,
+                top: numDocs,
+                queryLanguage: "en"
+            }
+            if (indexConfig) {
+                let url = `${process.env.COGSEARCH_URL}/indexes/${indexConfig.name}/docs/search?api-version=2021-04-30-Preview`
+                const axiosResult = await axios.post(url, body, headers)
+
+
+                return axiosResult.data.value
+            }
+
+        } catch (err) {
+            console.log(err)
+        }
+        return []
+    }
+
+    private _getText = (searchables, data) => {
+        try {
+            if (!searchables || searchables.length === 0) {
+                return ""
+            }
+            let out = ""
+
+            for (const s of searchables) {
+                let currentData = data
+                for (const i of s.split('/')) {
+                    if (Array.isArray(currentData[i])) {
+                        currentData = currentData[i][0]
+                    } else {
+                        currentData = currentData[i]
+                    }
                 }
-                qaChainParams = refineParams
-                qaChainParams.type = this._parameters.type
-                break;
-            case "map_reduce":
-                const mapReduceParams: MapReduceQAChainParams = {
-                    returnIntermediateSteps: true,
-                    verbose: true,
-                    combineMapPrompt: getPrompt(this._parameters.mrCombineMapPrompt),
-                    combinePrompt: getPrompt(this._parameters.mrCombinePrompt),
-                }
-                qaChainParams = mapReduceParams
-                qaChainParams.type = this._parameters.type
-                break;
+                out += currentData
+            }
+            return out
+        } catch (err) {
+            console.log(err)
         }
 
-        const queryChain = new LLMChain({prompt : getPrompt(this._parameters.questionGenerationPrompt), llm : llm, memory : memory})
-        const newQuery = await queryChain.call({question : query})
-        console.log(JSON.stringify(newQuery))
+    }
 
-        const retrievalChain = ConversationalRetrievalQAChain.fromLLM(
-            llm,
-            retriever,
-            {
-                memory: memory,
-                qaChainOptions: qaChainParams,
-                returnSourceDocuments: true,
-                questionGeneratorChainOptions: {
-                    llm,
-                    template: this._parameters.questionGenerationPrompt && this._parameters.questionGenerationPrompt.length > 0 ? this._parameters.questionGeneratorPrompt : null
+    public run = async (query: string, memory: BufferWindowMemory): Promise<ChainValues> => {
+
+        //const retriever: BaseRetriever = new CogSearchRetriever(this._parameters.retriever)
+        const llmConfig: OpenAIBaseInput = this._parameters.llmConfig
+        const llm = new ChatOpenAI(llmConfig)
+        const customPrompt = "Return the location that is being discussed.  \nExample: \nQuery: I'd like to find some hotels near Austin, TX.  Result: Austin, TX\nQuery: {question}\n Result:"
+        const queryChain = new LLMChain({ prompt: this.getPrompt(customPrompt), llm: llm })
+        const targetLocation = await queryChain.call({ question: query })
+        console.log(JSON.stringify(targetLocation))
+        const maps = await axios.get(`https://atlas.microsoft.com/search/address/json?&subscription-key=${mapKey}&api-version=1.0&language=en-US&query=${targetLocation.text}&countryset=US`)
+        let results = "Here are the results of your search: \n"
+        const docs = []
+        if (maps.data.results.length > 0 && maps.data.results[0]?.position) {
+            const geo = maps.data.results[0].position
+            if (geo.lat) {
+                const filter = `geo.distance(position/geometry, geography'POINT(${geo.lon} ${geo.lat})') le 200`
+                const searchResults = await this._search("", filter, 5, this._parameters.retriever.indexConfig)
+                const docs: Document<Record<string, any>>[] = []
+                for (const v of searchResults) {
+                    const doc: Document<Record<string, any>> = {
+                        pageContent: this._getText(this._parameters.retriever.indexConfig.searchableFields, v),
+                        metadata: v
+                    }
+                    docs.push(doc)
                 }
-
+                console.log(searchResults)
+                for (const r of searchResults) {
+                    results += `Name: ${r.profile.name}  State: ${r.address.state.name}  Zip: ${r.address.zip} \n`
+                }
             }
-        );
-        //retrievalChain.inputKey = "question"
+        }
 
-        const out = await retrievalChain.call({ question: newQuery.text })
-        return out
+        return { text: results, sourceDocuments: docs, chatHistory: memory }
     }
 }
