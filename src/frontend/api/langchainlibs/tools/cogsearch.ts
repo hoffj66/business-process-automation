@@ -3,6 +3,7 @@ import { Tool } from "langchain/tools";
 import { CogSearchRetrievalQAChain } from "../chains/cogSearchRetrievalQA";
 import { BufferWindowMemory, ChatMessageHistory } from "langchain/memory";
 import { ChainValues } from "langchain/schema";
+import { HotelsByGeoChain } from "../chains/hotelsByGeo";
 
 export class CogSearchTool extends Tool {
 
@@ -19,8 +20,6 @@ export class CogSearchTool extends Tool {
         this._memorySize = parameters.memorySize
         this._results = []
         this._history = parameters.history
-        
-        
     }
 
     public name : string
@@ -32,7 +31,12 @@ export class CogSearchTool extends Tool {
     }
 
     public _call = async (arg : string) : Promise<string> => {
-        const chain = new CogSearchRetrievalQAChain(this._chainParameters)
+        let chain
+        if(this?._chainParameters?.type === 'geolocation'){
+            chain = new HotelsByGeoChain(this._chainParameters)
+        } else {
+            chain = new CogSearchRetrievalQAChain(this._chainParameters)
+        }
         let outputKey = "text"
         if(this?._chainParameters?.type === "refine"){
             outputKey = "output_text"
@@ -40,6 +44,6 @@ export class CogSearchTool extends Tool {
         const memory = new BufferWindowMemory({k : this._memorySize, memoryKey : "chat_history", outputKey : outputKey, chatHistory : this._history}) 
         const values = await chain.run(arg, memory)
         this._results.push(values)
-        return values.answer
+        return values.text
     }
 }

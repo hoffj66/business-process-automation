@@ -26,7 +26,8 @@ import axios from 'axios'
 const chainTypes = [
     "refine",
     "stuff",
-    "map_reduce"
+    "map_reduce",
+    "geolocation"
 ]
 
 const agentTypes = [

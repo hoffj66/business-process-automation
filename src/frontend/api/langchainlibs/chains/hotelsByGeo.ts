@@ -11,7 +11,7 @@ import { Document } from "langchain/document";
 
 const mapKey = process.env.MAPS_API_KEY
 
-export class HotelsByGeo {
+export class HotelsByGeoChain {
     private _parameters: any
     constructor(parameters: any) {
         this._parameters = parameters
@@ -87,7 +87,7 @@ export class HotelsByGeo {
         const targetLocation = await queryChain.call({ question: query })
         console.log(JSON.stringify(targetLocation))
         const maps = await axios.get(`https://atlas.microsoft.com/search/address/json?&subscription-key=${mapKey}&api-version=1.0&language=en-US&query=${targetLocation.text}&countryset=US`)
-        let results = "Here are the results of your search: \n"
+        let results = "Hotels: \n"
         const docs = []
         if (maps.data.results.length > 0 && maps.data.results[0]?.position) {
             const geo = maps.data.results[0].position
@@ -104,7 +104,7 @@ export class HotelsByGeo {
                 }
                 console.log(searchResults)
                 for (const r of searchResults) {
-                    results += `Name: ${r.profile.name}  State: ${r.address.state.name}  Zip: ${r.address.zip} \n`
+                    results += `- ${r.profile.name}\n`
                 }
             }
         }

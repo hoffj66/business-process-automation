@@ -9,10 +9,8 @@ import { PlanAndExecuteAgentExecutor } from "langchain/experimental/plan_and_exe
 import { ChatOpenAI } from "langchain/chat_models/openai";
 import { AgentExecutor, LLMSingleActionAgent, initializeAgentExecutorWithOptions } from "langchain/agents";
 import { Tool } from "langchain/tools"
-import { LocationChain } from "../langchainlibs/chains/locationChain";
-import { LocationTool } from "../langchainlibs/tools/location";
 import { HotelAgent } from "../langchainlibs/agents/hotel";
-import { HotelsByGeo } from "../langchainlibs/chains/filteredLocationChain";
+import { HotelsByGeoChain } from "../langchainlibs/chains/hotelsByGeo";
 
 process.env.OPENAI_API_TYPE = "azure"
 process.env.AZURE_OPENAI_API_KEY = process.env.OPENAI_KEY
@@ -26,15 +24,21 @@ process.env.AZURE_OPENAI_API_BASE = process.env.OPENAI_ENDPOINT
 
 
 const runChain = async (pipeline, history): Promise<ChainValues> => {
-  const chain =  new HotelsByGeo(pipeline.chainParameters)//new CogSearchRetrievalQAChain(pipeline.chainParameters)
+  let chain
+
+  if (pipeline.chainParameters.type === 'geolocation') {
+    chain = new HotelsByGeoChain(pipeline.chainParameters)
+  } else {
+    chain = new CogSearchRetrievalQAChain(pipeline.chainParameters)
+  }
   let outputKey: string
   if (pipeline.chainParameters.type === "refine") {
     outputKey = "output_text"
   } else {
     outputKey = "text"
   }
-      
-  const memory: BufferWindowMemory = new BufferWindowMemory({ k: pipeline.memorySize, memoryKey: "chat_history", outputKey: outputKey, chatHistory : convertToLangChainMessage(history)})
+
+  const memory: BufferWindowMemory = new BufferWindowMemory({ k: pipeline.memorySize, memoryKey: "chat_history", outputKey: outputKey, chatHistory: convertToLangChainMessage(history) })
   const query = history[history.length - 1].user
   const out = await chain.run(query, memory)
   return out
@@ -43,18 +47,18 @@ const runChain = async (pipeline, history): Promise<ChainValues> => {
 const runAgent = async (pipeline, history): Promise<ChainValues> => {
   //pipeline.history = convertToLangChainMessage(history)
   pipeline.parameters.tools[0].history = convertToLangChainMessage(history)
-  const tool = new LocationTool(pipeline.parameters.tools[0])
-  const tools: Tool[] = [tool]
-  // for (const t of pipeline.parameters.tools) {
-  //   t.history = convertToLangChainMessage(history)
-  //   const tool = new CogSearchTool(t)
-  //   tools.push(tool)
-  // }
-  const agent = new HotelAgent()
+  //const tool = new LocationTool(pipeline.parameters.tools[0])
+  const tools: Tool[] = []
+  for (const t of pipeline.parameters.tools) {
+    t.history = convertToLangChainMessage(history)
+    let tool = new CogSearchTool(t)
+    tools.push(tool)
+  }
+  const agent = new HotelAgent(pipeline)
   const executor = new AgentExecutor({
-    agent : agent,
-    tools : tools,
-    maxIterations : 5
+    agent: agent,
+    tools: tools,
+    maxIterations: 3
   });
   // let executor
   // switch (pipeline.subType) {
@@ -78,9 +82,9 @@ const runAgent = async (pipeline, history): Promise<ChainValues> => {
   const query = history[history.length - 1].user
   const controller = new AbortController();
 
-  // setTimeout(() => {
-  //   controller.abort();
-  // }, 60000);
+  setTimeout(() => {
+    controller.abort();
+  }, 30000);
   const result = await executor.call({
     input: query//  , signal: controller.signal
   });
