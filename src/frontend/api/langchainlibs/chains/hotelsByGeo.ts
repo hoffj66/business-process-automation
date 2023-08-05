@@ -93,7 +93,7 @@ export class HotelsByGeoChain {
             const geo = maps.data.results[0].position
             if (geo.lat) {
                 const filter = `geo.distance(position/geometry, geography'POINT(${geo.lon} ${geo.lat})') le 200`
-                const searchResults = await this._search("", filter, 5, this._parameters.retriever.indexConfig)
+                const searchResults = await this._search("", filter, this._parameters.retriever.numDocs, this._parameters.retriever.indexConfig)
                 const docs: Document<Record<string, any>>[] = []
                 for (const v of searchResults) {
                     const doc: Document<Record<string, any>> = {
@@ -104,7 +104,7 @@ export class HotelsByGeoChain {
                 }
                 console.log(searchResults)
                 for (const r of searchResults) {
-                    results += `- ${r.profile.name}\n`
+                    results += `\t- Name: ${r.profile.name} \n`
                 }
             }
         }

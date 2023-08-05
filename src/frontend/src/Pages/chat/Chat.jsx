@@ -27,7 +27,8 @@ const chainTypes = [
     "refine",
     "stuff",
     "map_reduce",
-    "geolocation"
+    "geolocation",
+    "hotelqa"
 ]
 
 const agentTypes = [

@@ -11,6 +11,7 @@ import { AgentExecutor, LLMSingleActionAgent, initializeAgentExecutorWithOptions
 import { Tool } from "langchain/tools"
 import { HotelAgent } from "../langchainlibs/agents/hotel";
 import { HotelsByGeoChain } from "../langchainlibs/chains/hotelsByGeo";
+import { HotelQAChain } from "../langchainlibs/chains/hotelQA";
 
 process.env.OPENAI_API_TYPE = "azure"
 process.env.AZURE_OPENAI_API_KEY = process.env.OPENAI_KEY
@@ -28,7 +29,9 @@ const runChain = async (pipeline, history): Promise<ChainValues> => {
 
   if (pipeline.chainParameters.type === 'geolocation') {
     chain = new HotelsByGeoChain(pipeline.chainParameters)
-  } else {
+  } else if(pipeline.chainParameters.type === 'hotelqa'){
+    chain = new HotelQAChain(pipeline.chainParameters)
+  }else {
     chain = new CogSearchRetrievalQAChain(pipeline.chainParameters)
   }
   let outputKey: string

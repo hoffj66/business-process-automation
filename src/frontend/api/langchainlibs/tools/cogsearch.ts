@@ -4,6 +4,7 @@ import { CogSearchRetrievalQAChain } from "../chains/cogSearchRetrievalQA";
 import { BufferWindowMemory, ChatMessageHistory } from "langchain/memory";
 import { ChainValues } from "langchain/schema";
 import { HotelsByGeoChain } from "../chains/hotelsByGeo";
+import { HotelQAChain } from "../chains/hotelQA";
 
 export class CogSearchTool extends Tool {
 
@@ -34,6 +35,8 @@ export class CogSearchTool extends Tool {
         let chain
         if(this?._chainParameters?.type === 'geolocation'){
             chain = new HotelsByGeoChain(this._chainParameters)
+        } else if(this?._chainParameters?.type === 'hotelqa'){
+            chain = new HotelQAChain(this._chainParameters)
         } else {
             chain = new CogSearchRetrievalQAChain(this._chainParameters)
         }
