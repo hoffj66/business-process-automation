@@ -27,8 +27,8 @@ const httpTrigger: AzureFunction = async function (context: Context, req: HttpRe
         const q = req.body.q
         let body = {
             "prompt": truncatedString + "\n\n\n" + q,
-            "temperature": 0.7,
-            "top_p": 1,
+            "temperature": 0.0,
+            "top_p": 0,
             "frequency_penalty": 0,
             "presence_penalty": 0,
             "best_of": 1,

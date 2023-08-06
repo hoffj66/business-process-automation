@@ -58,6 +58,21 @@ export class HotelQAChain {
         return out
     }
 
+    private _getHotelListFromQuery = (query: string) => {
+        const out = []
+
+        if (query.includes("Hotels: \n")) {
+            const splitString = query.replace('Hotels:', '').replace(/[\r\n\t]/gm, '').split('- Name:')
+            for (const s of splitString) {
+                if (s.trim().length > 0) {
+                    out.push(s.trim())
+                }
+            }
+        }
+
+        return out
+    }
+
     private _getText = (searchables, data) => {
         try {
             if (!searchables || searchables.length === 0 || !data) {
@@ -87,10 +102,17 @@ export class HotelQAChain {
         return (prompt && prompt.length > 0) ? PromptTemplate.fromTemplate(prompt) : null
     }
 
+    private getQueryFromQuery = (query) => {
+        return query
+    }
+
 
     public run = async (query: string, memory: BufferWindowMemory): Promise<ChainValues> => {
-        memory.chatHistory.addUserMessage(query)
-        const hotelList = await this._getHotelList(memory)
+        //memory.chatHistory.addUserMessage(query)
+        const hotelList1 = await this._getHotelList(memory)
+        const hotelList2 = this._getHotelListFromQuery(query) 
+        const hotelList = hotelList1.concat(hotelList2)
+        query = this.getQueryFromQuery(query)
 
         const docs = []
         for (const hotel of hotelList) {
@@ -98,7 +120,7 @@ export class HotelQAChain {
             docs.push(tempDoc[0])
             console.log(tempDoc)
         }
-        let answer = ""
+        let answer = "\nInformation: \n"
         let iter = 0
         for (const doc of docs) {
             const text = this._getText(this._parameters.retriever.indexConfig.searchableFields, doc)
@@ -112,7 +134,7 @@ export class HotelQAChain {
             iter++
         }
 
-        memory.chatHistory.addAIChatMessage(answer)
-        return { text: answer, sourceDocuments: [], memory: memory }
+        //memory.chatHistory.addAIChatMessage(answer)
+        return { text: answer, sourceDocuments: [] }
     }
 }

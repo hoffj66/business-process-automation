@@ -78,11 +78,11 @@ export class HotelsByGeoChain {
     }
 
     public run = async (query: string, memory: BufferWindowMemory): Promise<ChainValues> => {
-
+        //memory.chatHistory.addUserMessage(query)
         //const retriever: BaseRetriever = new CogSearchRetriever(this._parameters.retriever)
         const llmConfig: OpenAIBaseInput = this._parameters.llmConfig
         const llm = new ChatOpenAI(llmConfig)
-        const customPrompt = "Return the location that is being discussed.  \nExample: \nQuery: I'd like to find some hotels near Austin, TX.  Result: Austin, TX\nQuery: {question}\n Result:"
+        const customPrompt = "Return the location that is being discussed.  \nExample: \nQuery: I'd like to find some hotels near Austin, TX.  Result: Austin, TX\nQuery: {question}\n Result:\n"
         const queryChain = new LLMChain({ prompt: this.getPrompt(customPrompt), llm: llm })
         const targetLocation = await queryChain.call({ question: query })
         console.log(JSON.stringify(targetLocation))
@@ -92,7 +92,7 @@ export class HotelsByGeoChain {
         if (maps.data.results.length > 0 && maps.data.results[0]?.position) {
             const geo = maps.data.results[0].position
             if (geo.lat) {
-                const filter = `geo.distance(position/geometry, geography'POINT(${geo.lon} ${geo.lat})') le 200`
+                const filter = `geo.distance(position/geometry, geography'POINT(${geo.lon} ${geo.lat})') le 50`
                 const searchResults = await this._search("", filter, this._parameters.retriever.numDocs, this._parameters.retriever.indexConfig)
                 const docs: Document<Record<string, any>>[] = []
                 for (const v of searchResults) {
@@ -109,6 +109,7 @@ export class HotelsByGeoChain {
             }
         }
 
-        return { text: results, sourceDocuments: docs, chatHistory: memory }
+        //memory.chatHistory.addAIChatMessage(results)
+        return { text: results, sourceDocuments: docs }
     }
 }

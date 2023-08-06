@@ -9,7 +9,7 @@ import { HotelQAChain } from "../chains/hotelQA";
 export class CogSearchTool extends Tool {
 
     private _chainParameters : any
-    private _history : ChatMessageHistory
+    private _memory : BufferWindowMemory
     private _memorySize : number
     private _results : ChainValues[]
 
@@ -19,8 +19,8 @@ export class CogSearchTool extends Tool {
         this.name = parameters.name
         this.description = parameters.description
         this._memorySize = parameters.memorySize
+        this._memory = parameters.memory
         this._results = []
-        this._history = parameters.history
     }
 
     public name : string
@@ -44,8 +44,7 @@ export class CogSearchTool extends Tool {
         if(this?._chainParameters?.type === "refine"){
             outputKey = "output_text"
         }
-        const memory = new BufferWindowMemory({k : this._memorySize, memoryKey : "chat_history", outputKey : outputKey, chatHistory : this._history}) 
-        const values = await chain.run(arg, memory)
+        const values = await chain.run(arg, this._memory)
         this._results.push(values)
         return values.text
     }

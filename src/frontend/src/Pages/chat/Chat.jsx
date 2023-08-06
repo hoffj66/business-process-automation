@@ -112,15 +112,124 @@ const EnterpriseSearch = () => {
     Question: {question}
     Chat History: {chat_history}
     New Query:`)
-    const [stuffPrompt, setStuffPrompt] = useState(`I'm a virtual assistant that answers questions based on documents that are returned.  I will only return information that is within the context of the document.  If the question is not about hotels or locations, return "This question is not in scope for this bot".  Each name is the name of a hotel along with the city and zip code.  Following the response list the names of each hotels in a bulleted list using hyphens.
-    Example:
-    - hotel name 1
-    - hotel name 2 
+    const [stuffPrompt, setStuffPrompt] = useState(`Based on the Question and Completed Steps return one of the following: [completed, search_hotels, hotel_information, completed]
+
+    Rules:
     
-        Document : {context} 
-        Question : {question}
-        Chat History: {chat_history}
-        Answer:`)
+    - if the question is not about hotels, hotel locations, events near a hotel, or information about a hotel, return not_in_scope.
+    
+    - if a list of hotels exists in the Completed Steps, return completed
+    
+    - if there is not a list of hotels in the Completed Steps, return search_hotels
+    
+    - if the question is asking for additional information about a group of hotels and the hotels exist in the Completed Steps, return hotel_information
+    
+    Examples:
+    
+         Question: "show me hotels near raleigh, nc" 
+         Completed Steps: Hotels: 
+        - Name: Linyi West 
+        - Name: Danville 
+        - Name: Charlotte NE - University Area 
+        Result: completed<stop>
+    
+         Question: "show me hotels near raleigh, nc" 
+         Completed Steps: 
+        Result: search_hotels<stop>
+    
+         Question: "what is the parking policy?" 
+         Completed Steps: Hotels: 
+        - Name: Linyi West 
+        - Name: Danville 
+        - Name: Charlotte NE - University Area 
+        Result: hotel_information<stop>
+    
+         Question: "is wifi available?" 
+         Completed Steps: Hotels: 
+        - Name: Linyi West 
+        - Name: Danville 
+        - Name: Charlotte NE - University Area 
+        Result: hotel_information<stop>
+    
+        Question: "is wifi available?" 
+         Completed Steps: 
+        Result: search_hotels<stop>
+    
+         Question: "i need some hotels near Pittsburgh that have ample parking" 
+         Completed Steps: Hotels: 
+        - Name: Linyi West 
+        - Name: Danville 
+        - Name: Charlotte NE - University Area 
+    
+             Information:
+             - Linyi West : Parking is not available
+             - Danville : There is no mention of parking in the document
+             - Charlotte NE - University Area : There is no mention of parking in the document
+        Result: completed<stop>
+    
+         Question: "what is the pet policy for hotels near raleigh" 
+         Completed Steps: Hotels: 
+        - Name: Linyi West 
+        - Name: Danville 
+        - Name: Charlotte NE - University Area 
+    
+             Information:
+             - Linyi West : Service pets are welcome.
+             - Danville : There is no mention of pets in the document
+             - Charlotte NE - University Area : There is no mention of petsin the document
+        Result: completed<stop>
+    
+    Question: "what is the parking policy?" 
+         Completed Steps: Hotels: 
+        - Name: Linyi West 
+        - Name: Danville 
+        - Name: Charlotte NE - University Area 
+        Result: hotel_information<stop>
+    
+         Question: "what are the pet policies for hotels near austin, tx" 
+         Completed Steps: Hotels: 
+        - Name: Linyi West 
+        - Name: Danville 
+        - Name: Charlotte NE - University Area 
+        Result: hotel_information<stop>
+    
+         Question: "what are the pet policies for hotels near austin, tx" 
+         Completed Steps: 
+        Result: search_hotels<stop>
+    
+    
+         Question: "is a cat a mammal?" 
+         Completed Steps: 
+        Result: not_in_scope<stop>
+    
+    
+         Question: "i need a hotel near disney world with ample parking." 
+         Completed Steps: Hotels: 
+        - Name: Linyi West 
+        - Name: Danville 
+        - Name: Charlotte NE - University Area 
+        Result: hotel_information<stop>
+    
+         Question: "my cousin needs to borrow money" 
+         Completed Steps: Hotels: 
+        - Name: Linyi West 
+        - Name: Danville 
+        - Name: Charlotte NE - University Area 
+        Information:
+             - Linyi West : Parking is not available
+             - Danville : There is no mention of parking in the document
+             - Charlotte NE - University Area : There is no mention of parking in the document
+        Result:  not_in_scope
+    
+    
+         Question: "{input}"
+    
+         Completed Steps:
+         {history}
+         {steps}
+    
+         Result:`
+    )
 
 
 
@@ -129,6 +238,126 @@ const EnterpriseSearch = () => {
             if (_indexes?.data?.indexes) {
                 setIndexes(_indexes.data.indexes)
                 setSelectedIndex(_indexes.data.indexes[0])
+
+                const llmConfig = {
+                    temperature: 0.1,
+                    topP: 0,
+                    frequencyPenalty: 0.1,
+                    presencePenalty: 0,
+                    n: 1,
+                    streaming: false,
+                    modelName: "gpt-3.5-turbo",
+                    maxConcurrency: 1
+                }
+
+                const indexConfig = {
+
+                    "name": "hotelswithzipgeo-index",
+                    "facetableFields": [],
+                    "searchableFields": [
+                        "profile/shortDescription",
+                        "profile/longDescription",
+                        "address/state/name",
+                        "address/zip",
+                        "policies/pet/description",
+                        "parking/parkingDescription",
+                        "marketing/marketingText/hotelMajorFeature",
+                        "marketing/marketingText/mustDo",
+                        "marketing/marketingText/mustSee",
+                        "marketing/marketingText/whatsNew",
+                        "marketing/welcomeMessage",
+                        "location/introText"
+                    ],
+                    "collections": [],
+                    "semanticConfigurations": [
+                        {
+                            "name": "default",
+                            "prioritizedFields": {
+                                "titleField": {
+                                    "fieldName": "profile/name"
+                                },
+                                "prioritizedContentFields": [
+                                    {
+                                        "fieldName": "profile/shortDescription"
+                                    },
+                                    {
+                                        "fieldName": "profile/longDescription"
+                                    },
+                                    {
+                                        "fieldName": "address/state/name"
+                                    },
+                                    {
+                                        "fieldName": "address/zip"
+                                    },
+                                    {
+                                        "fieldName": "policies/pet/description"
+                                    },
+                                    {
+                                        "fieldName": "parking/parkingDescription"
+                                    },
+                                    {
+                                        "fieldName": "marketing/marketingText/hotelMajorFeature"
+                                    },
+                                    {
+                                        "fieldName": "marketing/marketingText/mustDo"
+                                    },
+                                    {
+                                        "fieldName": "marketing/marketingText/mustSee"
+                                    },
+                                    {
+                                        "fieldName": "marketing/marketingText/whatsNew"
+                                    }
+                                ],
+                                "prioritizedKeywordsFields": []
+                            }
+                        }
+                    ]
+                }
+
+                const geolocation = {
+                    name: "search_hotels",
+                    description: "Search for hotels based on location.  Use this tool if it is a list of hotels is not available in the Question or Completed Steps.",
+                    memorySize: 10,
+                    chainParameters: {
+                        type: "geolocation",
+                        memorySize: 10,
+                        llmConfig: llmConfig,
+                        retriever: {
+                            type: "cogsearch",
+                            indexConfig: indexConfig,
+                            numDocs: 3
+                        },
+                        stuffPrompt: stuffPrompt,
+                        refinePrompt: refinePrompt,
+                        refineQuestionPrompt: refineQuestionPrompt,
+                        mrCombineMapPrompt: mrCombineMapPrompt,
+                        mrCombinePrompt: mrCombinePrompt,
+                        questionGenerationPrompt: questionGenerationPrompt
+                    }
+                }
+
+                const hotelqa = {
+                    name: "hotel_information",
+                    description: "Answer questions about hotels.  A list of hotels is required in the Completed Steps to use this tool.  If there is a hotel_questions output in the Completed Steps, return \"completed\"",
+                    memorySize: 10,
+                    chainParameters: {
+                        type: "hotelqa",
+                        memorySize: 10,
+                        llmConfig: llmConfig,
+                        retriever: {
+                            type: "cogsearch",
+                            indexConfig: indexConfig,
+                            numDocs: 3
+                        },
+                        stuffPrompt: stuffPrompt,
+                        refinePrompt: refinePrompt,
+                        refineQuestionPrompt: refineQuestionPrompt,
+                        mrCombineMapPrompt: mrCombineMapPrompt,
+                        mrCombinePrompt: mrCombinePrompt,
+                        questionGenerationPrompt: questionGenerationPrompt
+                    }
+                }
+                setTools([geolocation, hotelqa])
             }
         }).catch(err => {
             console.log(err)
@@ -177,6 +406,7 @@ const EnterpriseSearch = () => {
                 name: "agent",
                 type: "agent",
                 subType: agentType,
+                prompt: stuffPrompt,
                 parameters: {
                     tools: tools,
                 }

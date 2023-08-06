@@ -5,9 +5,7 @@ import { BufferWindowMemory, ChatMessageHistory } from "langchain/memory";
 import { ChainValues } from "langchain/schema";
 import { CogSearchRetrievalQAChain } from "../langchainlibs/chains/cogSearchRetrievalQA";
 import { CogSearchTool } from "../langchainlibs/tools/cogsearch";
-import { PlanAndExecuteAgentExecutor } from "langchain/experimental/plan_and_execute";
-import { ChatOpenAI } from "langchain/chat_models/openai";
-import { AgentExecutor, LLMSingleActionAgent, initializeAgentExecutorWithOptions } from "langchain/agents";
+import { AgentExecutor } from "langchain/agents";
 import { Tool } from "langchain/tools"
 import { HotelAgent } from "../langchainlibs/agents/hotel";
 import { HotelsByGeoChain } from "../langchainlibs/chains/hotelsByGeo";
@@ -29,9 +27,9 @@ const runChain = async (pipeline, history): Promise<ChainValues> => {
 
   if (pipeline.chainParameters.type === 'geolocation') {
     chain = new HotelsByGeoChain(pipeline.chainParameters)
-  } else if(pipeline.chainParameters.type === 'hotelqa'){
+  } else if (pipeline.chainParameters.type === 'hotelqa') {
     chain = new HotelQAChain(pipeline.chainParameters)
-  }else {
+  } else {
     chain = new CogSearchRetrievalQAChain(pipeline.chainParameters)
   }
   let outputKey: string
@@ -49,11 +47,12 @@ const runChain = async (pipeline, history): Promise<ChainValues> => {
 
 const runAgent = async (pipeline, history): Promise<ChainValues> => {
   //pipeline.history = convertToLangChainMessage(history)
-  pipeline.parameters.tools[0].history = convertToLangChainMessage(history)
+  //pipeline.parameters.tools[0].history = convertToLangChainMessage(history)
   //const tool = new LocationTool(pipeline.parameters.tools[0])
   const tools: Tool[] = []
+  const memory: BufferWindowMemory = new BufferWindowMemory({ k: pipeline.memorySize, memoryKey: "chat_history", chatHistory: convertToLangChainMessage(history) })
   for (const t of pipeline.parameters.tools) {
-    t.history = convertToLangChainMessage(history)
+    t.memory = memory
     let tool = new CogSearchTool(t)
     tools.push(tool)
   }
@@ -84,12 +83,13 @@ const runAgent = async (pipeline, history): Promise<ChainValues> => {
   // }
   const query = history[history.length - 1].user
   const controller = new AbortController();
-
+  
   setTimeout(() => {
     controller.abort();
   }, 30000);
   const result = await executor.call({
-    input: query//  , signal: controller.signal
+    input: query, signal: controller.signal, memory: memory
+
   });
 
   return result
@@ -163,7 +163,7 @@ const defaultChat = async (context, req) => {
     "messages": convertToMessage(req.body.history),
     "deployment": process.env.OPENAI_DEPLOYMENT_TEXT,
     "temperature": 0,
-    "top_p": 1,
+    "top_p": 0,
     "max_tokens": 800,
     "stop": null,
     "stream": false
