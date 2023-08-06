@@ -162,7 +162,41 @@ const EnterpriseSearch = () => {
         - Name: Charlotte NE - University Area 
     
              Information:
-             - Linyi West : Parking is not available
+             - Linyi West : Parking is not 
+
+Question: "what is the pet policy?"
+    
+         Completed Steps:
+         
+show me hotels near raleigh
+
+Hotels: 
+	- Name: Linyi West 
+	- Name: Danville 
+	- Name: Charlotte NE - University Area 
+
+
+what is the pet policy?
+
+Something went wrong. AbortError
+
+         
+Information: 
+
+	- Linyi West : No pets are allowed.
+
+
+	- Danville : Pets are allowed with a non-refundable fee of $75 per stay. The limit is 2 pets per pet-friendly room with a weight limit of 50 lbs. Pets are not allowed in the breakfast area.
+
+
+	- Charlotte NE - University Area : The document does not provide information about the pet policy.
+
+
+
+    
+         Result: completed<stop>
+
+
              - Danville : There is no mention of parking in the document
              - Charlotte NE - University Area : There is no mention of parking in the document
         Result: completed<stop>
@@ -192,6 +226,9 @@ const EnterpriseSearch = () => {
         - Name: Danville 
         - Name: Charlotte NE - University Area 
         Result: hotel_information<stop>
+
+
+
     
          Question: "what are the pet policies for hotels near austin, tx" 
          Completed Steps: 
@@ -362,6 +399,7 @@ const EnterpriseSearch = () => {
         }).catch(err => {
             console.log(err)
         })
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     const generatePipeline = () => {
