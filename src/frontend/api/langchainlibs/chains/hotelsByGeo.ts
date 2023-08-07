@@ -104,7 +104,7 @@ export class HotelsByGeoChain {
                 }
                 console.log(searchResults)
                 for (const r of searchResults) {
-                    results += `\t- Name: ${r.profile.name} \n`
+                    results += `\t- Name: ${r.name} \n`
                 }
             }
         }
