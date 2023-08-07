@@ -55,14 +55,14 @@ export class HotelAgent extends BaseSingleActionAgent {
         }
         //const llmConfig: OpenAIBaseInput = this._parameters.llmConfig
         const llm = new ChatOpenAI({
-            maxTokens = 50,
+            maxTokens : 50,
             temperature: 0.0,
             topP: 0,
             frequencyPenalty: 0.0,
             presencePenalty: 0,
             n: 1,
             streaming: false,
-            modelName: "gpt-3.5-turbo",
+            modelName: "gpt-3.5-turbo-16",
             maxConcurrency: 1,
             stop:['<stop>']
         })

@@ -283,7 +283,7 @@ Information:
                     presencePenalty: 0,
                     n: 1,
                     streaming: false,
-                    modelName: "gpt-3.5-turbo",
+                    modelName: "gpt-3.5-turbo-16k",
                     maxConcurrency: 1
                 }
 
@@ -410,7 +410,7 @@ Information:
             presencePenalty: 0,
             n: 1,
             streaming: false,
-            modelName: "gpt-3.5-turbo",
+            modelName: "gpt-3.5-turbo-16k",
             maxConcurrency: 1
         }
 
@@ -518,7 +518,7 @@ Information:
             presencePenalty: 0,
             n: 1,
             streaming: false,
-            modelName: "gpt-3.5-turbo",
+            modelName: "gpt-3.5-turbo-16k",
             maxConcurrency: 1
         }
 
