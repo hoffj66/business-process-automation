@@ -102,9 +102,25 @@ export class HotelsByGeoChain {
                     }
                     docs.push(doc)
                 }
-                console.log(searchResults)
+                searchResults.sort((a, b) => {
+                    const dxa = Math.abs(a.geometry.coordinates[0]) - Math.abs(geo.lon)
+                    const dya = Math.abs(a.geometry.coordinates[1]) - Math.abs(geo.lat)
+                    const da = Math.pow(dxa,2) + Math.pow(dya,2)
+
+                    const dxb = Math.abs(b.geometry.coordinates[0]) - Math.abs(geo.lon)
+                    const dyb = Math.abs(b.geometry.coordinates[1]) - Math.abs(geo.lat)
+                    const db = Math.pow(dxb,2) + Math.pow(dyb,2)
+
+                    const d = da - db
+
+                    return d
+                })
+                
                 for (const r of searchResults) {
-                    results += `\t- Name: ${r.name} \n`
+                    const dxa = Math.abs(r.geometry.coordinates[0]) - Math.abs(geo.lon)
+                    const dya = Math.abs(r.geometry.coordinates[1]) - Math.abs(geo.lat)
+                    const da = Math.pow(dxa,2) + Math.pow(dya,2)
+                    results += `\t- Name: ${r.name} \nDistance: ${Math.floor(Math.sqrt(da) * 100) / 100 } km`
                 }
             }
         }
