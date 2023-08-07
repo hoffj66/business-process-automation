@@ -92,7 +92,7 @@ export class HotelsByGeoChain {
         if (maps.data.results.length > 0 && maps.data.results[0]?.position) {
             const geo = maps.data.results[0].position
             if (geo.lat) {
-                const filter = `geo.distance(position/geometry, geography'POINT(${geo.lon} ${geo.lat})') le 50`
+                const filter = `geo.distance(geometry, geography'POINT(${geo.lon} ${geo.lat})') le 50`
                 const searchResults = await this._search("", filter, this._parameters.retriever.numDocs, this._parameters.retriever.indexConfig)
                 const docs: Document<Record<string, any>>[] = []
                 for (const v of searchResults) {
