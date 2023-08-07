@@ -46,10 +46,10 @@ export class HotelAgent extends BaseSingleActionAgent {
     }
 
     plan = async (steps: AgentStep[], inputs: ChainValues, callbackManager?: CallbackManager): Promise<AgentAction | AgentFinish> => {
-        if(steps.length > 3){
+        if(steps.length === 2){
             const finish: AgentFinish = {
-                returnValues: { steps: steps, inputs: inputs, output: "Failed due to logic loop." },
-                log: "completed with error"
+                returnValues: { steps: steps, inputs: inputs, output: steps.length > 0 ? steps[steps.length - 1].observation : "" },
+                log: "completed"
             }
             return finish
         }
@@ -62,7 +62,7 @@ export class HotelAgent extends BaseSingleActionAgent {
             presencePenalty: 0,
             n: 1,
             streaming: false,
-            modelName: "gpt-3.5-turbo-16",
+            modelName: "gpt-3.5-turbo-16k",
             maxConcurrency: 1,
             stop:['<stop>']
         })
@@ -192,6 +192,13 @@ export class HotelAgent extends BaseSingleActionAgent {
         const debugPrompt = await this.getPrompt(this._parameters.prompt).format({ history:  await this.historyToText(inputs.memory.chatHistory),input: inputs.input, toolList: this.toolsToText(this._parameters.parameters.tools), steps: this.stepsToText(steps) })
         console.log(debugPrompt)
         const stage = await queryChain.call({ history:  await this.historyToText(inputs.memory.chatHistory),input: inputs.input, toolList: this.toolsToText(this._parameters.parameters.tools), steps: this.stepsToText(steps) })
+        if(stage.text.includes('not_in_scope')){
+            const finish: AgentFinish = {
+                returnValues: { steps: steps, inputs: inputs, output: "This question is not in the scope of this bot." },
+                log: "completed"
+            }
+            return finish
+        }
         for (const t of this._parameters.parameters.tools) {
             if (t.name === stage.text.replace('<stop>','')) {
                 const action: AgentAction = {

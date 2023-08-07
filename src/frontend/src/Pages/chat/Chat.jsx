@@ -257,6 +257,43 @@ Information:
              - Danville : There is no mention of parking in the document
              - Charlotte NE - University Area : There is no mention of parking in the document
         Result:  not_in_scope
+
+        Question: "what is the pet policy?"
+    
+        Completed Steps:
+         
+        show me some hotels near raleigh
+
+         Hotels: 
+	- Name: Linyi West 
+        - Name: Linyi Riverside 
+
+        Result: hotel_information<stop>
+
+	Question: "what is the pet policy?"
+    
+         Completed Steps:
+         
+	show me hotels close to raleigh
+
+	Hotels: 
+	- Name: Linyi West 
+	- Name: Linyi Riverside 
+
+
+         
+	Information: 
+
+	- Linyi West : No pets allowed.
+
+
+	- Linyi Riverside : The pet policy is that pets are not allowed unless they are service animals.
+
+
+
+    
+         Result: completed<stop>
+
     
     
          Question: "{input}"
