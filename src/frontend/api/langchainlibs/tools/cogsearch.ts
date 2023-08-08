@@ -34,7 +34,7 @@ export class CogSearchTool extends Tool {
     public _call = async (arg : string) : Promise<string> => {
         let chain
         if(this?._chainParameters?.type === 'geolocation'){
-            chain = new HotelsByGeoChain(this._chainParameters)
+            chain = new HotelsByGeoChain(this._chainParameters, null)
         } else if(this?._chainParameters?.type === 'hotelqa'){
             chain = new HotelQAChain(this._chainParameters)
         } else {

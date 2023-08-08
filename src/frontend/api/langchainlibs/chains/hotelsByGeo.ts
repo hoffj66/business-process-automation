@@ -10,8 +10,10 @@ import { Document } from "langchain/document";
 
 export class HotelsByGeoChain {
     private _parameters: any
-    constructor(parameters: any) {
+    private _prev
+    constructor(parameters: any, prev: any) {
         this._parameters = parameters
+        this._prev = prev
     }
 
     private getPrompt = (prompt) => {
@@ -79,8 +81,8 @@ export class HotelsByGeoChain {
         //const retriever: BaseRetriever = new CogSearchRetriever(this._parameters.retriever)
         const llmConfig: OpenAIBaseInput = this._parameters.llmConfig
         const llm = new ChatOpenAI(llmConfig)
-        const customPrompt = 
-        `Return the location that is being discussed.
+        const customPrompt =
+            `Return the location that is being discussed.  If there is no specific location, return "none".
         Example: 
         Query: I'd like to find some hotels near Austin, TX.  
         Result: Austin, TX
@@ -88,71 +90,85 @@ export class HotelsByGeoChain {
         Result: Disney World
         Query: I'd like to find some hotels near the track at VIR
         Result: track at VIR
+        Query: I like petting cats.  Why do they bite me?
+        Result: none
         Query: {question} 
         Result:\n`
         const queryChain = new LLMChain({ prompt: this.getPrompt(customPrompt), llm: llm })
         const targetLocation = await queryChain.call({ question: query })
         console.log(JSON.stringify(targetLocation))
-        const maps = await axios.get(`https://atlas.microsoft.com/search/address/json?&subscription-key=${process.env.MAPS_API_KEY}&api-version=1.0&language=en-US&query=${targetLocation.text}&countryset=US`)
-        if(maps.data.results.length === 0){
-            return { text: `I could not get the coordinates for ${targetLocation.text}. Perhaps use the name of the town or rephrase it?`, sourceDocuments: [] }
-        }
-        
-        let results = "Hotels: \n"
-        const docs = []
+        let docs = []
+        let previousAnswer = ""
+        if (targetLocation.text === 'none') {
+            docs = this._prev.data_points
+            previousAnswer = this._prev.answer.text
+        } else {
+            const maps = await axios.get(`https://atlas.microsoft.com/search/address/json?&subscription-key=${process.env.MAPS_API_KEY}&api-version=1.0&language=en-US&query=${targetLocation.text}&countryset=US`)
+            if (maps.data.results.length === 0) {
+                return { text: `I could not get the coordinates for ${targetLocation.text}. Perhaps use the name of the town or rephrase it?`, sourceDocuments: [] }
+            }
 
-        if (maps.data.results.length > 0 && maps.data.results[0]?.position) {
-            const geo = maps.data.results[0].position
-            if (geo.lat) {
-                const filter = `geo.distance(geometry, geography'POINT(${geo.lon} ${geo.lat})') le 50`
-                const searchResults = await this._search("", filter, this._parameters.retriever.numDocs, this._parameters.retriever.indexConfig)
-                
-                if(searchResults.length === 0){
-                    return { text: `No results were found while searching near ${targetLocation.text}`, sourceDocuments: [] }
-                }
-                
-                for (const v of searchResults) {
-                    const doc: Document<Record<string, any>> = {
-                        pageContent: this._getText(this._parameters.retriever.indexConfig.searchableFields, v),
-                        metadata: v
+            let results = "Hotels: \n"
+            
+            if (maps.data.results.length > 0 && maps.data.results[0]?.position) {
+                const geo = maps.data.results[0].position
+                if (geo.lat) {
+                    const filter = `geo.distance(geometry, geography'POINT(${geo.lon} ${geo.lat})') le 50`
+                    const searchResults = await this._search("", filter, this._parameters.retriever.numDocs, this._parameters.retriever.indexConfig)
+
+                    if (searchResults.length === 0) {
+                        return { text: `No results were found while searching near ${targetLocation.text}`, sourceDocuments: [] }
                     }
-                    docs.push(doc)
-                }
-                searchResults.sort((a, b) => {
-                    const dxa = Math.abs(a.geometry.coordinates[0]) - Math.abs(geo.lon)
-                    const dya = Math.abs(a.geometry.coordinates[1]) - Math.abs(geo.lat)
-                    const da = Math.pow(dxa,2) + Math.pow(dya,2)
 
-                    const dxb = Math.abs(b.geometry.coordinates[0]) - Math.abs(geo.lon)
-                    const dyb = Math.abs(b.geometry.coordinates[1]) - Math.abs(geo.lat)
-                    const db = Math.pow(dxb,2) + Math.pow(dyb,2)
+                    for (const v of searchResults) {
+                        const doc: Document<Record<string, any>> = {
+                            pageContent: this._getText(this._parameters.retriever.indexConfig.searchableFields, v),
+                            metadata: v
+                        }
+                        docs.push(doc)
+                    }
+                    searchResults.sort((a, b) => {
+                        const dxa = Math.abs(a.geometry.coordinates[0]) - Math.abs(geo.lon)
+                        const dya = Math.abs(a.geometry.coordinates[1]) - Math.abs(geo.lat)
+                        const da = Math.pow(dxa, 2) + Math.pow(dya, 2)
 
-                    const d = da - db
+                        const dxb = Math.abs(b.geometry.coordinates[0]) - Math.abs(geo.lon)
+                        const dyb = Math.abs(b.geometry.coordinates[1]) - Math.abs(geo.lat)
+                        const db = Math.pow(dxb, 2) + Math.pow(dyb, 2)
 
-                    return d
-                })
-                
-                for (const r of searchResults) {
-                    const dxa = Math.abs(r.geometry.coordinates[0]) - Math.abs(geo.lon)
-                    const dya = Math.abs(r.geometry.coordinates[1]) - Math.abs(geo.lat)
-                    const da = Math.pow(dxa,2) + Math.pow(dya,2)
-                    results += `\t- Name: ${r.name}\n`// \nDistance: ${Math.floor(Math.sqrt(da) * 100) / 100 } km`
+                        const d = da - db
+
+                        return d
+                    })
+
+                    for (const r of searchResults) {
+                        const dxa = Math.abs(r.geometry.coordinates[0]) - Math.abs(geo.lon)
+                        const dya = Math.abs(r.geometry.coordinates[1]) - Math.abs(geo.lat)
+                        const da = Math.pow(dxa, 2) + Math.pow(dya, 2)
+                        results += `\t- Name: ${r.name}\n`// \nDistance: ${Math.floor(Math.sqrt(da) * 100) / 100 } km`
+                    }
                 }
             }
         }
 
-        const resultPrompt = 
-        `Question : {query}
+        const resultPrompt =
+            `When referencing a hotel in the response, apply a bold html markup.
+        Example:
+        {{"name" : "hotel1", petPolicy: "pets are allowed", "shortDescription": "Free wifi is available"}},
+        {{"name" : "hotel2", petPolicy: "pets are not allowed", "shortDescription": "The grass is greener here."}}
+        The citation would be:  At <b>hotel1</b>, pets are allowed as per the pet Policy. Free wifi is available. <b>hotel2</b> does not allow pets.
+        Question : {query}
         Documents : {docs}
+        Previous Answer : {previous_answer}
         Response : `
         const resultChain = new LLMChain({ prompt: this.getPrompt(resultPrompt), llm: llm })
         //const docTextArray = docs.map(v => {return `name : ${v.metadata.name}\nshort description : ${v.metadata.shortDescription} ` })
         let docText = ""
-        for(const doc of docs){
+        for (const doc of docs) {
             docText += `name : ${doc.metadata.name}\nhotel json data : ${JSON.stringify(doc.metadata)}\n\n `
         }
-        const resultText = await resultChain.call({ query: query, docs : docText })
-        
+        const resultText = await resultChain.call({ query: query, docs: docText, previous_answer : previousAnswer })
+
         return { text: resultText, sourceDocuments: docs }
     }
 }

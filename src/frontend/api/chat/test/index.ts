@@ -26,11 +26,11 @@ process.env.MAPS_API_KEY = data.Values.MAPS_API_KEY
 process.env.COGSEARCH_URL = data.Values.COGSEARCH_URL
 process.env.COGSEARCH_APIKEY = data.Values.COGSEARCH_APIKEY
 
-const runChain = async (pipeline, history): Promise<ChainValues> => {
+const runChain = async (pipeline, history, prev): Promise<ChainValues> => {
   let chain
 
   if (pipeline.chainParameters.type === 'geolocation') {
-    chain = new HotelsByGeoChain(pipeline.chainParameters)
+    chain = new HotelsByGeoChain(pipeline.chainParameters, prev)
   } else if (pipeline.chainParameters.type === 'hotelqa') {
     chain = new HotelQAChain(pipeline.chainParameters)
   } else {
@@ -203,10 +203,10 @@ const defaultChat = async (index, history) => {
 
 }
 
-const run = async (pipeline: any, history: any): Promise<ChainValues> => {
+const run = async (pipeline: any, history: any, prev): Promise<ChainValues> => {
 
   if (pipeline.type === "chain") {
-    return runChain(pipeline, history)
+    return runChain(pipeline, history, prev)
   } else if (pipeline.type === 'agent') {
     return runAgent(pipeline, history)
   }
@@ -215,13 +215,13 @@ const run = async (pipeline: any, history: any): Promise<ChainValues> => {
 }
 
 //const httpTrigger: AzureFunction = async function (context: Context, req: HttpRequest): Promise<void> {
-const go = async (payload) => {
+const go = async (payload, prev) => {
   try {
     if (payload.pipeline.name === 'default') {
       //return defaultChat(context, req)
       return null
     } else {
-      const v = await run(payload.pipeline, payload.history)
+      const v = await run(payload.pipeline, payload.history, prev)
       let answer = ""
       if (v?.output) {
         answer = v.output
@@ -231,17 +231,17 @@ const go = async (payload) => {
         answer = v.output_text
       }
 
-      let data_points = []
-      if (v?.sourceDocuments) {
-        for (const d of v.sourceDocuments) {
-          data_points.push({
-            title: d.metadata.filename,
-            content: d.pageContent
-          })
-        }
-      }
+      //let data_points = []
+      // if (v?.sourceDocuments) {
+      //   for (const d of v.sourceDocuments) {
+      //     data_points.push({
+      //       title: d.metadata.filename,
+      //       content: d.pageContent
+      //     })
+      //   }
+      // }
 
-      return { "data_points": data_points, "answer": answer, "thoughts": "" }
+      return { "data_points": v.sourceDocuments, "answer": answer, "thoughts": "" }
       // context.res = {
       //   body: { "data_points": data_points, "answer": answer, "thoughts": "" }
       // }
@@ -260,8 +260,10 @@ const go = async (payload) => {
 //let tempHistory = payload.history
 //let mypayload = agentPayload
 
-go(payload("can you recommend a hotel near raleigh nc that is pet friendly?")).then(out => {
-  console.log(out)
+go(payload("can you recommend a hotel near raleigh nc that is pet friendly?"), null).then(out => {
+  go(payload("does it have free wifi?"), out).then(out2 => {
+    console.log(out2)
+  })
   // tempHistory[0]["assistant"] = out.answer
   // tempHistory.push({
   //   "user": "what is the parking policy?"

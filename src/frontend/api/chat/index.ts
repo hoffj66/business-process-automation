@@ -27,7 +27,7 @@ const runChain = async (pipeline, history): Promise<ChainValues> => {
   let chain
 
   if (pipeline.chainParameters.type === 'geolocation') {
-    chain = new HotelsByGeoChain(pipeline.chainParameters)
+    chain = new HotelsByGeoChain(pipeline.chainParameters, null)
   } else if (pipeline.chainParameters.type === 'hotelqa') {
     chain = new HotelQAChain(pipeline.chainParameters)
   } else {
