@@ -1,27 +1,30 @@
-import { AzureFunction, Context, HttpRequest } from "@azure/functions"
+//import { AzureFunction, Context, HttpRequest } from "@azure/functions"
 import axios from "axios"
 
 import { BufferWindowMemory, ChatMessageHistory } from "langchain/memory";
 import { ChainValues } from "langchain/schema";
-import { CogSearchRetrievalQAChain } from "../langchainlibs/chains/cogSearchRetrievalQA";
-import { CogSearchTool } from "../langchainlibs/tools/cogsearch";
+import { CogSearchRetrievalQAChain } from "../../langchainlibs/chains/cogSearchRetrievalQA";
+import { CogSearchTool } from "../../langchainlibs/tools/cogsearch";
 import { AgentExecutor } from "langchain/agents";
 import { Tool } from "langchain/tools"
-import { HotelAgent } from "../langchainlibs/agents/hotel";
-import { HotelsByGeoChain } from "../langchainlibs/chains/hotelsByGeo";
-import { HotelQAChain } from "../langchainlibs/chains/hotelQA";
+import { HotelAgent } from "../../langchainlibs/agents/hotel";
+import { HotelsByGeoChain } from "../../langchainlibs/chains/hotelsByGeo";
+import { HotelQAChain } from "../../langchainlibs/chains/hotelQA";
+import { payload } from "./chainpayload"
+
+import * as data from '../../local.settings.json'
 
 process.env.OPENAI_API_TYPE = "azure"
-process.env.AZURE_OPENAI_API_KEY = process.env.OPENAI_KEY
-process.env.AZURE_OPENAI_API_INSTANCE_NAME = `oai${process.env.COSMOS_DB_CONTAINER}`
-process.env.AZURE_OPENAI_API_DEPLOYMENT_NAME = process.env.OPENAI_DEPLOYMENT_TEXT
+process.env.AZURE_OPENAI_API_KEY = data.Values.OPENAI_KEY
+process.env.AZURE_OPENAI_API_INSTANCE_NAME = `oai${data.Values.COSMOS_DB_CONTAINER}`
+process.env.AZURE_OPENAI_API_DEPLOYMENT_NAME = data.Values.OPENAI_DEPLOYMENT_TEXT
 // process.env.AZURE_OPENAI_API_COMPLETIONS_DEPLOYMENT_NAME="gpt-35-turbo"
 // process.env.AZURE_OPENAI_API_EMBEDDINGS_DEPLOYMENT_NAME="gpt-35-turbo"
 process.env.AZURE_OPENAI_API_VERSION = "2023-03-15-preview"
-process.env.AZURE_OPENAI_API_BASE = process.env.OPENAI_ENDPOINT
-
-
-
+process.env.AZURE_OPENAI_API_BASE = data.Values.OPENAI_ENDPOINT
+process.env.MAPS_API_KEY = data.Values.MAPS_API_KEY
+process.env.COGSEARCH_URL = data.Values.COGSEARCH_URL
+process.env.COGSEARCH_APIKEY = data.Values.COGSEARCH_APIKEY
 
 const runChain = async (pipeline, history): Promise<ChainValues> => {
   let chain
@@ -84,7 +87,7 @@ const runAgent = async (pipeline, history): Promise<ChainValues> => {
   // }
   const query = history[history.length - 1].user
   const controller = new AbortController();
-  
+
   setTimeout(() => {
     controller.abort();
   }, 30000);
@@ -129,7 +132,7 @@ const convertToLangChainMessage = (history) => {
   return messages
 }
 
-const defaultChat = async (context, req) => {
+const defaultChat = async (index, history) => {
   const url = `${process.env.OPENAI_ENDPOINT}openai/deployments/${process.env.OPENAI_DEPLOYMENT_TEXT}/extensions/chat/completions?api-version=2023-06-01-preview`
   const headers = {
     "Content-Type": "application/json",
@@ -146,12 +149,12 @@ const defaultChat = async (context, req) => {
         "parameters": {
           "endpoint": process.env.COGSEARCH_URL,
           "key": process.env.COGSEARCH_APIKEY,
-          "indexName": req.body.index.name,
+          "indexName": index.name,
           "semanticConfiguration": "default",
           "queryType": "semantic",
           "fieldsMapping": {
             "contentFieldsSeparator": "\n",
-            "contentFields": req.body.index.searchableFields,
+            "contentFields": index.searchableFields,
             "filepathField": "filename",
             "titleField": "filename",
             "urlField": "filename"
@@ -161,7 +164,7 @@ const defaultChat = async (context, req) => {
         }
       }
     ],
-    "messages": convertToMessage(req.body.history),
+    "messages": convertToMessage(history),
     "deployment": process.env.OPENAI_DEPLOYMENT_TEXT,
     "temperature": 0,
     "top_p": 0,
@@ -185,14 +188,17 @@ const defaultChat = async (context, req) => {
       }
     }
 
-    context.res = {
-      body: { "data_points": citations, "answer": answer, "thoughts": JSON.stringify(data.choices) }
-    }
+    return { "data_points": citations, "answer": answer, "thoughts": JSON.stringify(data.choices) }
+
+    // context.res = {
+    //   body: { "data_points": citations, "answer": answer, "thoughts": JSON.stringify(data.choices) }
+    // }
 
   } catch (err) {
-    context.res = {
-      body: JSON.stringify(err)
-    }
+    console.log(err)
+    // context.res = {
+    //   body: JSON.stringify(err)
+    // }
   }
 
 }
@@ -208,13 +214,14 @@ const run = async (pipeline: any, history: any): Promise<ChainValues> => {
   return null
 }
 
-const httpTrigger: AzureFunction = async function (context: Context, req: HttpRequest): Promise<void> {
-
+//const httpTrigger: AzureFunction = async function (context: Context, req: HttpRequest): Promise<void> {
+const go = async (payload) => {
   try {
-    if (req.body.pipeline.name === 'default') {
-      return defaultChat(context, req)
+    if (payload.pipeline.name === 'default') {
+      //return defaultChat(context, req)
+      return null
     } else {
-      const v = await run(req.body.pipeline, req.body.history)
+      const v = await run(payload.pipeline, payload.history)
       let answer = ""
       if (v?.output) {
         answer = v.output
@@ -234,18 +241,38 @@ const httpTrigger: AzureFunction = async function (context: Context, req: HttpRe
         }
       }
 
-      context.res = {
-        body: { "data_points": data_points, "answer": answer, "thoughts": "" }
-      }
+      return { "data_points": data_points, "answer": answer, "thoughts": "" }
+      // context.res = {
+      //   body: { "data_points": data_points, "answer": answer, "thoughts": "" }
+      // }
     }
   } catch (err) {
-    context.res = {
-      body: { "data_points": [], "answer": `Something went wrong. ${err.message}`, "thoughts": "" }
-    }
+    return { "data_points": [], "answer": `Something went wrong. ${err.message}`, "thoughts": "" }
+    // context.res = {
+    //   body: { "data_points": [], "answer": `Something went wrong. ${err.message}`, "thoughts": "" }
+    // }
   }
 
+
   //defaultChat(context, req)
-};
+}
+
+//let tempHistory = payload.history
+//let mypayload = agentPayload
+
+go(payload("can you recommend a hotel near raleigh nc that is pet friendly?")).then(out => {
+  console.log(out)
+  // tempHistory[0]["assistant"] = out.answer
+  // tempHistory.push({
+  //   "user": "what is the parking policy?"
+  // })
+  // mypayload.history = tempHistory
+  // go(mypayload).then(out => {
+  //   console.log(out)
+  // })
+}).catch(err => {
+  console.log(err)
+})
 
 
-export default httpTrigger;
+

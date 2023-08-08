@@ -1,15 +1,12 @@
 import { ChainValues } from "langchain/schema"
-import { CogSearchRetriever } from "../retrievers/cogsearch"
 import { OpenAIBaseInput } from "langchain/dist/types/openai-types"
 import { LLMChain } from "langchain/chains";
 import { BufferWindowMemory } from "langchain/memory";
 import { ChatOpenAI } from "langchain/chat_models/openai";
-import { BaseRetriever } from "langchain/dist/schema/retriever";
 import { PromptTemplate } from "langchain";
 import axios, { AxiosRequestConfig } from "axios";
 import { Document } from "langchain/document";
 
-const mapKey = process.env.MAPS_API_KEY
 
 export class HotelsByGeoChain {
     private _parameters: any
@@ -96,7 +93,7 @@ export class HotelsByGeoChain {
         const queryChain = new LLMChain({ prompt: this.getPrompt(customPrompt), llm: llm })
         const targetLocation = await queryChain.call({ question: query })
         console.log(JSON.stringify(targetLocation))
-        const maps = await axios.get(`https://atlas.microsoft.com/search/address/json?&subscription-key=${mapKey}&api-version=1.0&language=en-US&query=${targetLocation.text}&countryset=US`)
+        const maps = await axios.get(`https://atlas.microsoft.com/search/address/json?&subscription-key=${process.env.MAPS_API_KEY}&api-version=1.0&language=en-US&query=${targetLocation.text}&countryset=US`)
         if(maps.data.results.length === 0){
             return { text: `I could not get the coordinates for ${targetLocation.text}. Perhaps use the name of the town or rephrase it?`, sourceDocuments: [] }
         }
@@ -114,7 +111,6 @@ export class HotelsByGeoChain {
                     return { text: `No results were found while searching near ${targetLocation.text}`, sourceDocuments: [] }
                 }
                 
-                const docs: Document<Record<string, any>>[] = []
                 for (const v of searchResults) {
                     const doc: Document<Record<string, any>> = {
                         pageContent: this._getText(this._parameters.retriever.indexConfig.searchableFields, v),
@@ -145,8 +141,18 @@ export class HotelsByGeoChain {
             }
         }
 
-        //memory.chatHistory.addAIChatMessage(results)
+        const resultPrompt = 
+        `Question : {query}
+        Documents : {docs}
+        Response : `
+        const resultChain = new LLMChain({ prompt: this.getPrompt(resultPrompt), llm: llm })
+        //const docTextArray = docs.map(v => {return `name : ${v.metadata.name}\nshort description : ${v.metadata.shortDescription} ` })
+        let docText = ""
+        for(const doc of docs){
+            docText += `name : ${doc.metadata.name}\nhotel json data : ${JSON.stringify(doc.metadata)}\n\n `
+        }
+        const resultText = await resultChain.call({ query: query, docs : docText })
         
-        return { text: results, sourceDocuments: docs }
+        return { text: resultText, sourceDocuments: docs }
     }
 }
