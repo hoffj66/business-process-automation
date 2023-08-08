@@ -82,18 +82,38 @@ export class HotelsByGeoChain {
         //const retriever: BaseRetriever = new CogSearchRetriever(this._parameters.retriever)
         const llmConfig: OpenAIBaseInput = this._parameters.llmConfig
         const llm = new ChatOpenAI(llmConfig)
-        const customPrompt = "Return the location that is being discussed.  \nExample: \nQuery: I'd like to find some hotels near Austin, TX.  Result: Austin, TX\nQuery: {question}\n Result:\n"
+        const customPrompt = 
+        `Return the location that is being discussed.
+        Example: 
+        Query: I'd like to find some hotels near Austin, TX.  
+        Result: Austin, TX
+        Query: I'd like to find some hotels near Disney World 
+        Result: Disney World
+        Query: I'd like to find some hotels near the track at VIR
+        Result: track at VIR
+        Query: {question} 
+        Result:\n`
         const queryChain = new LLMChain({ prompt: this.getPrompt(customPrompt), llm: llm })
         const targetLocation = await queryChain.call({ question: query })
         console.log(JSON.stringify(targetLocation))
         const maps = await axios.get(`https://atlas.microsoft.com/search/address/json?&subscription-key=${mapKey}&api-version=1.0&language=en-US&query=${targetLocation.text}&countryset=US`)
+        if(maps.data.results.length === 0){
+            return { text: `I could not get the coordinates for ${targetLocation.text}. Perhaps use the name of the town or rephrase it?`, sourceDocuments: [] }
+        }
+        
         let results = "Hotels: \n"
         const docs = []
+
         if (maps.data.results.length > 0 && maps.data.results[0]?.position) {
             const geo = maps.data.results[0].position
             if (geo.lat) {
                 const filter = `geo.distance(geometry, geography'POINT(${geo.lon} ${geo.lat})') le 50`
                 const searchResults = await this._search("", filter, this._parameters.retriever.numDocs, this._parameters.retriever.indexConfig)
+                
+                if(searchResults.length === 0){
+                    return { text: `No results were found while searching near ${targetLocation.text}`, sourceDocuments: [] }
+                }
+                
                 const docs: Document<Record<string, any>>[] = []
                 for (const v of searchResults) {
                     const doc: Document<Record<string, any>> = {
@@ -120,12 +140,13 @@ export class HotelsByGeoChain {
                     const dxa = Math.abs(r.geometry.coordinates[0]) - Math.abs(geo.lon)
                     const dya = Math.abs(r.geometry.coordinates[1]) - Math.abs(geo.lat)
                     const da = Math.pow(dxa,2) + Math.pow(dya,2)
-                    results += `\t- Name: ${r.name} \nDistance: ${Math.floor(Math.sqrt(da) * 100) / 100 } km`
+                    results += `\t- Name: ${r.name}\n`// \nDistance: ${Math.floor(Math.sqrt(da) * 100) / 100 } km`
                 }
             }
         }
 
         //memory.chatHistory.addAIChatMessage(results)
+        
         return { text: results, sourceDocuments: docs }
     }
 }

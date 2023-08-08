@@ -163,7 +163,7 @@ const defaultChat = async (context, req) => {
     "messages": convertToMessage(req.body.history),
     "deployment": process.env.OPENAI_DEPLOYMENT_TEXT,
     "temperature": 0,
-    "top_p": 0,
+    "top_p": 1,
     "max_tokens": 800,
     "stop": null,
     "stream": false
