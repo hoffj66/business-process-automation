@@ -82,14 +82,16 @@ export const payload = (question) => {
                 "type": "geolocation",
                 "memorySize": 10,
                 "llmConfig": {
-                    "temperature": 0.1,
+                    "temperature": 0,
                     "topP": 1,
-                    "frequencyPenalty": 0.1,
+                    "frequencyPenalty": 0,
                     "presencePenalty": 0,
                     "n": 1,
                     "streaming": false,
                     "modelName": "gpt-3.5-turbo-16k",
-                    "maxConcurrency": 1
+                    "maxConcurrency": 1,
+                    "maxTokens" : 1500,
+                    "stop":['<stop>']
                 },
                 "retriever": {
                     "type": "cogsearch",

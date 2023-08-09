@@ -77,6 +77,7 @@ const EnterpriseSearch = () => {
 
     const [selectedAnswer, setSelectedAnswer] = useState(0);
     const [answers, setAnswers] = useState([]);
+    const [prev, setPrev] = useState({})
 
     const [indexes, setIndexes] = useState([])
     const [selectedIndex, setSelectedIndex] = useState(null)
@@ -441,14 +442,15 @@ Information:
 
     const generatePipeline = () => {
         const llmConfig = {
-            temperature: 0.1,
-            topP: 0,
+            temperature: 0,
+            topP: 1,
             frequencyPenalty: 0.1,
             presencePenalty: 0,
             n: 1,
             streaming: false,
             modelName: "gpt-3.5-turbo-16k",
-            maxConcurrency: 1
+            maxConcurrency: 1,
+            stop:['<stop>']
         }
 
         let pipeline = {}
@@ -613,11 +615,13 @@ Information:
                     //facetQueryTermsTemplate: facetQueryTermsTemplate,
                     //facetTemplate : facetTemplate
                 },
-                index: selectedIndex
+                index: selectedIndex,
+                prev: prev
             };
             chatApi(request).then(result => {
                 setAnswers([...answers, [question, result]]);
                 setIsLoading(false);
+                setPrev(result)
             })
 
         } catch (e) {

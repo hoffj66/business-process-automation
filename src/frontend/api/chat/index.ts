@@ -23,11 +23,11 @@ process.env.AZURE_OPENAI_API_BASE = process.env.OPENAI_ENDPOINT
 
 
 
-const runChain = async (pipeline, history): Promise<ChainValues> => {
+const runChain = async (pipeline, history, prev): Promise<ChainValues> => {
   let chain
 
   if (pipeline.chainParameters.type === 'geolocation') {
-    chain = new HotelsByGeoChain(pipeline.chainParameters, null)
+    chain = new HotelsByGeoChain(pipeline.chainParameters, prev)
   } else if (pipeline.chainParameters.type === 'hotelqa') {
     chain = new HotelQAChain(pipeline.chainParameters)
   } else {
@@ -197,10 +197,10 @@ const defaultChat = async (context, req) => {
 
 }
 
-const run = async (pipeline: any, history: any): Promise<ChainValues> => {
+const run = async (pipeline: any, history: any, prev): Promise<ChainValues> => {
 
   if (pipeline.type === "chain") {
-    return runChain(pipeline, history)
+    return runChain(pipeline, history, prev)
   } else if (pipeline.type === 'agent') {
     return runAgent(pipeline, history)
   }
@@ -214,7 +214,7 @@ const httpTrigger: AzureFunction = async function (context: Context, req: HttpRe
     if (req.body.pipeline.name === 'default') {
       return defaultChat(context, req)
     } else {
-      const v = await run(req.body.pipeline, req.body.history)
+      const v = await run(req.body.pipeline, req.body.history, req.body.prev)
       let answer = ""
       if (v?.output) {
         answer = v.output
@@ -224,18 +224,18 @@ const httpTrigger: AzureFunction = async function (context: Context, req: HttpRe
         answer = v.output_text
       }
 
-      let data_points = []
-      if (v?.sourceDocuments) {
-        for (const d of v.sourceDocuments) {
-          data_points.push({
-            title: d.metadata.filename,
-            content: d.pageContent
-          })
-        }
-      }
+      // let data_points = []
+      // if (v?.sourceDocuments) {
+      //   for (const d of v.sourceDocuments) {
+      //     data_points.push({
+      //       title: d.metadata.filename,
+      //       content: d.pageContent
+      //     })
+      //   }
+      // }
 
       context.res = {
-        body: { "data_points": data_points, "answer": answer, "thoughts": "" }
+        body: { "data_points": v.sourceDocuments, "answer": answer, "thoughts": "" }
       }
     }
   } catch (err) {

@@ -262,7 +262,9 @@ const go = async (payload, prev) => {
 
 go(payload("can you recommend a hotel near raleigh nc that is pet friendly?"), null).then(out => {
   go(payload("does it have free wifi?"), out).then(out2 => {
-    console.log(out2)
+    go(payload("can you recommend a hotel near virginia beach that is pet friendly"), out2).then(out3 => {
+      console.log(out3)
+    })
   })
   // tempHistory[0]["assistant"] = out.answer
   // tempHistory.push({

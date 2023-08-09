@@ -41,6 +41,7 @@ export async function chatApi(options) {
             approach: options.approach,
             index: options.index,
             pipeline: options.pipeline,
+            prev: options.prev,
             overrides: {
                 semantic_ranker: options.overrides?.semanticRanker,
                 semantic_captions: options.overrides?.semanticCaptions,

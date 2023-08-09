@@ -67,7 +67,7 @@ export class HotelsByGeoChain {
                         currentData = currentData[i]
                     }
                 }
-                out += currentData
+                out += `${s} : ${currentData}\n`
             }
             return out
         } catch (err) {
@@ -97,6 +97,7 @@ export class HotelsByGeoChain {
         const queryChain = new LLMChain({ prompt: this.getPrompt(customPrompt), llm: llm })
         const targetLocation = await queryChain.call({ question: query })
         console.log(JSON.stringify(targetLocation))
+        let docText = ""
         let docs = []
         let previousAnswer = ""
         if (targetLocation.text === 'none') {
@@ -109,7 +110,7 @@ export class HotelsByGeoChain {
             }
 
             let results = "Hotels: \n"
-            
+
             if (maps.data.results.length > 0 && maps.data.results[0]?.position) {
                 const geo = maps.data.results[0].position
                 if (geo.lat) {
@@ -125,6 +126,7 @@ export class HotelsByGeoChain {
                             pageContent: this._getText(this._parameters.retriever.indexConfig.searchableFields, v),
                             metadata: v
                         }
+                        docText += doc.pageContent + "\n\n"
                         docs.push(doc)
                     }
                     searchResults.sort((a, b) => {
@@ -152,22 +154,18 @@ export class HotelsByGeoChain {
         }
 
         const resultPrompt =
-            `When referencing a hotel in the response, apply a bold html markup.
-        Example:
-        {{"name" : "hotel1", petPolicy: "pets are allowed", "shortDescription": "Free wifi is available"}},
-        {{"name" : "hotel2", petPolicy: "pets are not allowed", "shortDescription": "The grass is greener here."}}
-        The citation would be:  At <b>hotel1</b>, pets are allowed as per the pet Policy. Free wifi is available. <b>hotel2</b> does not allow pets.
-        Question : {query}
-        Documents : {docs}
-        Previous Answer : {previous_answer}
-        Response : `
+`When referencing a hotel in the response, apply a bold html markup.  Be sure to include citations that give exact quotes of the referenced data field.  Use only data found in the document to answer in the Response.  If the answer to the question doesn't exist in the Documents, respond that it is not known.  
+When an answer is provided in the Response always add citations.  
+
+Question : {query}
+Documents : 
+{docs}
+Response : `
         const resultChain = new LLMChain({ prompt: this.getPrompt(resultPrompt), llm: llm })
         //const docTextArray = docs.map(v => {return `name : ${v.metadata.name}\nshort description : ${v.metadata.shortDescription} ` })
-        let docText = ""
-        for (const doc of docs) {
-            docText += `name : ${doc.metadata.name}\nhotel json data : ${JSON.stringify(doc.metadata)}\n\n `
-        }
-        const resultText = await resultChain.call({ query: query, docs: docText, previous_answer : previousAnswer })
+    
+        console.log(await this.getPrompt(resultPrompt).format({ query: query, docs: docText, previous_answer: previousAnswer }))
+        const resultText = await resultChain.call({ query: query, docs: docText, previous_answer: previousAnswer })
 
         return { text: resultText, sourceDocuments: docs }
     }
