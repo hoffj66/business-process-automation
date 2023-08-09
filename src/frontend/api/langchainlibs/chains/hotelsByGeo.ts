@@ -154,8 +154,7 @@ export class HotelsByGeoChain {
         }
 
         const resultPrompt =
-`When referencing a hotel in the response, apply a bold html markup.  Be sure to include citations that give exact quotes of the referenced data field.  Use only data found in the document to answer in the Response.  If the answer to the question doesn't exist in the Documents, respond that it is not known.  
-When an answer is provided in the Response always add citations.  
+`When referencing a hotel in the response, apply a bold html markup.  Use the exact text of the document as evidence of the response.  Only answer questions based on the document text.  If the answer is not in the text, state that you don't know. 
 
 Question : {query}
 Documents : 
